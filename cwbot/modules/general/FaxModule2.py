@@ -391,9 +391,9 @@ class FaxModule2(BaseChatModule):
                         socket.timeout, 
                         socket.error,
                         ExpatError) as e:
-                    self.log("Error loading webpage "
+                    self.log("Error loading webpage {}"
                              "for fax list: {}: {}"
-                             .format(e.__class__.__name__, e.args))
+                             .format(address, e.__class__.__name__, e.args))
                 else:
                     entryCount = genLen(chain.from_iterable(
                                                     self._monsters.values()))
