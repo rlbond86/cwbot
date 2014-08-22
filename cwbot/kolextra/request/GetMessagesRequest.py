@@ -5,6 +5,8 @@ from kol.manager import PatternManager
 from kol.util import StringUtils
 from cwbot.locks import KmailLock
 from datetime import datetime
+import re
+from string import whitespace
 
 
 class GetMessagesRequest(GenericRequest):
@@ -66,6 +68,8 @@ class GetMessagesRequest(GenericRequest):
         brickPattern = PatternManager.getOrCompilePattern('brickMessage')
         coffeePattern = PatternManager.getOrCompilePattern('coffeeMessage')
         candyHeartPattern = PatternManager.getOrCompilePattern('candyHeartMessage')
+        
+        _linkParser = re.compile(r'<a target=_blank href="([^"]*)"><font color=blue>\[link\]</font></a>')
 
         messages = []
 
@@ -100,6 +104,38 @@ class GetMessagesRequest(GenericRequest):
             text = text.replace("<br/>", "\n")
             text = text.replace("<br>", "\n")
             text = text.strip()
+            
+            # parse links
+            oldText, text = text, ""
+            curPos = 0
+            curMatch = _linkParser.search(oldText)
+            while curMatch is not None and curPos <= len(oldText):
+                toAdd = ""
+                oldPos = curPos
+                matchStart = curMatch.start()
+                link = curMatch.group(1)
+                if curPos < matchStart:
+                    toAdd += oldText[curPos:matchStart]
+                toAdd += link
+                
+                # remove the link text, which may have spaces
+                curPos = curMatch.end()
+                while link:
+                    curChar = oldText[curPos]
+                    if curChar in whitespace:
+                        curPos += 1
+                    elif curChar == link[0]:
+                        link = link[1:]
+                        curPos += 1
+                    else:
+                        # ran into a match error -- roll back everything
+                        toAdd = oldText[oldPos:matchStart+1]
+                        curPos = matchStart+1
+                        break
+                text += toAdd
+                toAdd = ""
+                curMatch = _linkParser.search(oldText, pos=curPos)
+            text += oldText[curPos:]
 
             # KoL encodes all of the HTML entities in the message. Let's decode them to get the real text.
             text = StringUtils.htmlEntityDecode(text)
