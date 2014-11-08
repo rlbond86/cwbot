@@ -25,6 +25,8 @@ utc = pytz.utc
 _Faxbot = namedtuple('Faxbot', ['name', 'id', 'xml'])
 _FaxMatch = namedtuple('FaxMatch', ['monstername', 'forced', 'message'])
 _FaxState = namedtuple('FaxState', ['requestTime', 'requestId'])
+_faxbotToList = lambda fb: [1, fb.name, fb.id, fb.xml]
+_listToFaxbot = lambda ls: _Faxbot(*ls[1:])
 
 def utcTime():
     """ Epoch time in UTC """
@@ -54,18 +56,20 @@ class FaxMonsterEntry(object):
         return name.strip().lower() in self.nameList
     
     def __repr__(self):
-        return "{{Fax-{}: {}}}".format(self.nameList[0], 
-                                 ', '.join(self.nameList[1:]))
+        return "((FaxMonsterEntry: {}->{} on {}))".format(self.nameList[0], 
+                                 ', '.join(self.nameList[1:]),
+                                 self.faxbot)
         
     def toDict(self):
-        return {'name': self.name, 'code': self.code, 
-                'other': self._otherNames, 'playerId': self.playerId}
+        return {'name': self.name, 
+                'code': self.code, 
+                'other': self._otherNames, 
+                'faxbot': _faxbotToList(self.faxbot)}
         
     @classmethod
     def fromDict(cls, d):
-        obj = cls(d['name'], d['code'])
+        obj = cls(d['name'], d['code'], _listToFaxbot(d['faxbot']))
         obj._otherNames = d['other']
-        obj.playerId = d['playerId']
         return obj
 
 
@@ -156,17 +160,21 @@ class FaxModule2(BaseChatModule):
 
 
     def initialize(self, state, initData):
+        oldMonsterList = state.get('monsterlist', {})
+        self._monsters.update({k: [FaxMonsterEntry.fromDict(val) for val in v]
+                               for k,v in oldMonsterList.items()})
         self._finishInitialization.set()
 
 
     @property
     def state(self):
-        return {}
+        return {'monsterlist': {k: [val.toDict() for val in v]
+                                for k,v in self._monsters.items()}}
 
     
     @property
     def initialState(self):
-        return {}
+        return {'monsterlist': {}}
             
     
     def getFaxMatch(self, args):
@@ -362,6 +370,7 @@ class FaxModule2(BaseChatModule):
     def _refreshMonsterList(self):
         genLen = lambda gen: sum(1 for _ in gen)
         entryCount = genLen(chain.from_iterable(self._monsters.values()))
+        
         self.log("Updating xml... ({} entries)".format(entryCount))
         for _,v in self._monsters.items():
             v = [entry for entry in v
@@ -375,7 +384,7 @@ class FaxModule2(BaseChatModule):
 
         entryCount2 = genLen(chain.from_iterable(self._monsters.values()))
         if entryCount != entryCount2:
-            self._log("Removed {} entries due to config file mismatch."
+            self.log("Removed {} entries due to config file mismatch."
                       .format(entryCount - entryCount2))
         
         numTries = 3
@@ -398,6 +407,11 @@ class FaxModule2(BaseChatModule):
                     entryCount = genLen(chain.from_iterable(
                                                     self._monsters.values()))
                     d1 = d[d.keys()[0]]
+                    if 'botdata' not in d1:
+                        self.log('Could not find botdata in xml '
+                                  'from {}:\n{}'
+                                  .format(address, txt))
+                        continue
                     faxbot = _Faxbot(d1['botdata']['name'].encode('ascii'), 
                                      int(d1['botdata']['playerid']),
                                      address)
