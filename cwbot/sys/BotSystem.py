@@ -248,7 +248,7 @@ class BotSystem(EventSubsystem.EventCapable,
             raise SystemExit
         except Exception as e:
             self._raiseEvent("crash", None, {'args': e.__class__.__name__})
-            self._log.critical("Unknown error.")
+            self._log.exception("Unknown error.")
             raise
         finally:
             self._cleanup()
