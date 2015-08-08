@@ -164,6 +164,7 @@ class FaxModule2(BaseChatModule):
         oldMonsterList = state.get('monsterlist', {})
         self._monsters.update({k: [FaxMonsterEntry.fromDict(val) for val in v]
                                for k,v in oldMonsterList.items()})
+        
         self._finishInitialization.set()
 
 
@@ -320,7 +321,11 @@ class FaxModule2(BaseChatModule):
         """Send a request, if not waiting on another request."""
         with self.__lock:
             (monster, force, message) = self.getFaxMatch(args)
+            print monster
+            print force
+            print message
             matches = self._monsters.get(monster, [])
+            print matches
             
             if monster is None or not matches:
                 return message
@@ -383,11 +388,10 @@ class FaxModule2(BaseChatModule):
                 continue
             for prefixLength in range(len(splitName)):
                 for postfixLength in range(len(splitName) - prefixLength):
-                    if prefixLength == 0 and postfixLength == 0:
-                        continue
-                    prefix = splitName[0:prefixLength]
-                    postfix = [] if postfixLength == 0 else splitName[-postfixLength:]
-                    prefixPostfixMap[(' '.join(prefix), ' '.join(postfix))].append(name)
+                    if prefixLength != 0 or postfixLength != 0:
+                        prefix = splitName[0:prefixLength]
+                        postfix = [] if postfixLength == 0 else splitName[-postfixLength:]
+                        prefixPostfixMap[(' '.join(prefix), ' '.join(postfix))].append(name)
         for k in prefixPostfixMap.keys():
             prefixPostfixMap[k] = list(set(prefixPostfixMap[k]))
         prefixPostfixMap = {k:v for k,v in prefixPostfixMap.items() if len(v) >= 2}
@@ -395,7 +399,7 @@ class FaxModule2(BaseChatModule):
         while True:
             # compute highest character savings for each prefix/postfix pair
             prefixPostfixMap = {k:v for k,v in prefixPostfixMap.items() if len(v) >= 2}
-            prefixPostfixSavings = {}
+            averagePrefixPostfixSavings = {}
             for pp, members in prefixPostfixMap.items():
                 numMembers = sum(1 for entry in members if entry in splitMonsterNames)
                 if numMembers < 2:
@@ -407,15 +411,15 @@ class FaxModule2(BaseChatModule):
                 savings -= 3 # " | " between entries
                 savings *= numMembers - 1
                 savings -= 2 # braces before and after
-                prefixPostfixSavings[pp] = float(savings) / numMembers
-            if not prefixPostfixSavings:
+                averagePrefixPostfixSavings[pp] = float(savings) / numMembers
+            if not averagePrefixPostfixSavings:
                 break
             result = max(prefixPostfixSavings.items(), key=lambda x: x[1])
             if result[1] < 1:
-                break
+                break # character savings is less than 1 character per item
             bestPP = result[0]
-            preLen = len(bestPP[0])
-            postLen = len(bestPP[1])
+            preLen, postLen = map(len, bestPP[0])
+            # get unique part of each monster
             cores = []
             for member in prefixPostfixMap[bestPP]:
                 if member in splitMonsterNames and len(member) > preLen + postLen + 1:
@@ -427,6 +431,7 @@ class FaxModule2(BaseChatModule):
                                                     " " if bestPP[1] else "", bestPP[1]))
         finalNames.extend(splitMonsterNames.keys())
         
+        # sort finalNames
         def finalNamesKey(x):
             if not x or x[0] != "[":
                 return x
@@ -444,8 +449,8 @@ class FaxModule2(BaseChatModule):
     
     
     def _refreshMonsterList(self):
-        genLen = lambda gen: sum(1 for _ in gen)
-        entryCount = genLen(chain.from_iterable(self._monsters.values()))
+        valueCounter = lambda m: sum(1 for _ in chain.from_iterable(m.values()))
+        entryCount = valueCounter(self._monsters)
         
         self.log("Updating xml... ({} entries)".format(entryCount))
         for _,v in self._monsters.items():
@@ -458,11 +463,13 @@ class FaxModule2(BaseChatModule):
                     {k:v for k,v in self._monsters.items() if v})
         self._monsters = monsters
 
-        entryCount2 = genLen(chain.from_iterable(self._monsters.values()))
+        entryCount2 = valueCounter(self._monsters)
         if entryCount != entryCount2:
             self.log("Removed {} entries due to config file mismatch."
                       .format(entryCount - entryCount2))
         
+        faxbots = set()
+        loadingFailed = False
         numTries = 3
         for key in sorted(self._xmlAddresses.keys()):
             address = self._xmlAddresses[key]
@@ -479,9 +486,9 @@ class FaxModule2(BaseChatModule):
                     self.log("Error loading webpage {} "
                              "for fax list: {}: {}"
                              .format(address, e.__class__.__name__, e.args))
+                    loadingFailed = True
                 else:
-                    entryCount = genLen(chain.from_iterable(
-                                                    self._monsters.values()))
+                    entryCount = valueCounter(self._monsters)
                     d1 = d[d.keys()[0]]
                     if 'botdata' not in d1:
                         self.log('Could not find botdata in xml '
@@ -491,6 +498,7 @@ class FaxModule2(BaseChatModule):
                     faxbot = _Faxbot(d1['botdata']['name'].encode('ascii'), 
                                      int(d1['botdata']['playerid']),
                                      address)
+                    faxbots.add(faxbot)
                     monsters = d1['monsterlist']['monsterdata']
                     newMonsters = {}
                     for monster in monsters:
@@ -511,8 +519,7 @@ class FaxModule2(BaseChatModule):
                                              if entry.faxbot.xml != address]
                     for mname,monster in newMonsters.items():
                         self._monsters[mname].append(monster)
-                    entryCount2 = genLen(chain.from_iterable(
-                                                    self._monsters.values()))
+                    entryCount2 = valueCounter(self._monsters)
                     
                     # clear empty entries
                     monsters = defaultdict(list)
@@ -527,6 +534,13 @@ class FaxModule2(BaseChatModule):
                     break
 
         self._lastXmlUpdate = time.time()
+        if not loadingFailed:
+            oldLength = valueCounter(self._monsters)
+            self._monsters = {k: [val for val in v if val.faxbot in faxbots] for k,v in self._monsters.items()}
+            self._monsters = {k: v for k,v in self._monsters.items() if v}
+            newLength = valueCounter(self._monsters)
+            if oldLength > newLength:
+                self.log("Removed {} entries that referred to faxbots that are no longer used".format(oldLength - newLength))
         
 
     def _heartbeat(self):
