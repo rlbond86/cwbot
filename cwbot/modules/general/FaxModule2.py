@@ -387,12 +387,10 @@ class FaxModule2(BaseChatModule):
                         continue
                     prefix = splitName[0:prefixLength]
                     postfix = [] if postfixLength == 0 else splitName[-postfixLength:]
-                    self.debugLog("{} {} {} {} {}".format(prefix, prefixLength, postfix, postfixLength, name))
                     prefixPostfixMap[(' '.join(prefix), ' '.join(postfix))].append(name)
         for k in prefixPostfixMap.keys():
             prefixPostfixMap[k] = list(set(prefixPostfixMap[k]))
         prefixPostfixMap = {k:v for k,v in prefixPostfixMap.items() if len(v) >= 2}
-        self.debugLog(prefixPostfixMap)
         
         while True:
             # compute highest character savings for each prefix/postfix pair
@@ -413,7 +411,6 @@ class FaxModule2(BaseChatModule):
             if not prefixPostfixSavings:
                 break
             result = max(prefixPostfixSavings.items(), key=lambda x: x[1])
-            self.debugLog("selected {}".format(result))
             if result[1] < 1:
                 break
             bestPP = result[0]
@@ -425,7 +422,9 @@ class FaxModule2(BaseChatModule):
                     cores.append(member[preLen:len(member)-postLen].strip())
                     del splitMonsterNames[member]
             cores.sort()
-            finalNames.append("{}{}[{}]{}{}".format(bestPP[0], " " if bestPP[0] else "", " | ".join(cores), " " if bestPP[1] else "", bestPP[1]))
+            finalNames.append("{}{}[{}]{}{}".format(bestPP[0], " " if bestPP[0] else "", 
+                                                    " | ".join(cores), 
+                                                    " " if bestPP[1] else "", bestPP[1]))
         finalNames.extend(splitMonsterNames.keys())
         
         def finalNamesKey(x):
