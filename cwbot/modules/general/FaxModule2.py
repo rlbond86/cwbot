@@ -2,6 +2,7 @@ import time
 import calendar
 import re
 import socket
+import operator
 import pytz #@UnresolvedImport
 from itertools import chain
 import xmltodict
@@ -13,7 +14,6 @@ from collections import defaultdict, namedtuple, deque
 from fuzzywuzzy import fuzz #@UnresolvedImport
 from cwbot.modules.BaseChatModule import BaseChatModule
 import kol.util.Report
-#from kol.request.ClanLogRequest import ClanLogRequest, CLAN_LOG_FAX
 from cwbot.kolextra.request.ClanLogPartialRequest import \
                             ClanLogPartialRequest, CLAN_LOG_FAX
 import cwbot.util.DebugThreading as threading
@@ -83,7 +83,9 @@ class FaxModule2(BaseChatModule):
     faxbot_timeout - time to wait until giving up on a fax request [def. = 90]
     url_timeout - time to try to load XML page before timing out [def. = 15]
     [[[[xml]]]]
-        BOTNAME = URL_TO_XML
+        BOT_NUMBER = URL_TO_XML
+    [[[[success]]]]
+        BOTNAME = SUCCESS_PATTERN
     [[[[alias]]]]
         ALIASNAME = ALIAS (monster alias name)
         
@@ -141,7 +143,6 @@ class FaxModule2(BaseChatModule):
         self._lastFaxUname, self._lastFaxBotTime = None, None
         self._lastFaxCheck = 0
 
-        
         super(FaxModule2, self).__init__(manager, identity, config)
     
     
@@ -361,8 +362,84 @@ class FaxModule2(BaseChatModule):
         
         
     def _sendMonsterList(self, uid):
+        monsterList = sorted(set(self._monsters.keys()))
+        # find monsters with common prefixes/postfixes
+        # only groups monsters if one word is different
+        splitMonsterNames = {name: name.split(' ') for name in monsterList}
+        finalNames = []
+        
+        prefixPostfixMap = defaultdict(list)
+        # here's the plan. Make a list of all prefixes and postfixes that a
+        # monster belongs to. For example, "reanimated bat skeleton" belongs to
+        # the following:
+        #
+        # reanimated XXXXXXXXXXXXXXX
+        # reanimated bat XXXXXXXXXXX
+        # XXXXXXXXXXXXXXXXX skeleton
+        # XXXXXXXXXXXXX bat skeleton
+        # reanimated XXXXXX skeleton
+        for name, splitName in splitMonsterNames.items():
+            if len(splitName) == 1:
+                continue
+            for prefixLength in range(len(splitName)):
+                for postfixLength in range(len(splitName) - prefixLength):
+                    if prefixLength == 0 and postfixLength == 0:
+                        continue
+                    prefix = splitName[0:prefixLength]
+                    postfix = [] if postfixLength == 0 else splitName[-postfixLength:]
+                    self.debugLog("{} {} {} {} {}".format(prefix, prefixLength, postfix, postfixLength, name))
+                    prefixPostfixMap[(' '.join(prefix), ' '.join(postfix))].append(name)
+        for k in prefixPostfixMap.keys():
+            prefixPostfixMap[k] = list(set(prefixPostfixMap[k]))
+        prefixPostfixMap = {k:v for k,v in prefixPostfixMap.items() if len(v) >= 2}
+        self.debugLog(prefixPostfixMap)
+        
+        while True:
+            # compute highest character savings for each prefix/postfix pair
+            prefixPostfixMap = {k:v for k,v in prefixPostfixMap.items() if len(v) >= 2}
+            prefixPostfixSavings = {}
+            for pp, members in prefixPostfixMap.items():
+                numMembers = sum(1 for entry in members if entry in splitMonsterNames)
+                if numMembers < 2:
+                    prefixPostfixSavings[pp] = -1
+                    continue
+                savings = len(pp[0]) + len(pp[1])
+                savings += 1 if pp[0] else 0 # space before
+                savings += 1 if pp[1] else 0 # space after
+                savings -= 3 # " | " between entries
+                savings *= numMembers - 1
+                savings -= 2 # braces before and after
+                prefixPostfixSavings[pp] = float(savings) / numMembers
+            if not prefixPostfixSavings:
+                break
+            result = max(prefixPostfixSavings.items(), key=lambda x: x[1])
+            self.debugLog("selected {}".format(result))
+            if result[1] < 1:
+                break
+            bestPP = result[0]
+            preLen = len(bestPP[0])
+            postLen = len(bestPP[1])
+            cores = []
+            for member in prefixPostfixMap[bestPP]:
+                if member in splitMonsterNames and len(member) > preLen + postLen + 1:
+                    cores.append(member[preLen:len(member)-postLen].strip())
+                    del splitMonsterNames[member]
+            cores.sort()
+            finalNames.append("{}{}[{}]{}{}".format(bestPP[0], " " if bestPP[0] else "", " | ".join(cores), " " if bestPP[1] else "", bestPP[1]))
+        finalNames.extend(splitMonsterNames.keys())
+        
+        def finalNamesKey(x):
+            if not x or x[0] != "[":
+                return x
+            idx = x.find(']')
+            try:
+                return x[idx+1:].strip()
+            except IndexError:
+                return x
+                
+        finalNames.sort(key=finalNamesKey)
         text = ("Available monsters:\n\n" +
-                "\n".join(sorted(self._monsters.keys())))
+                "\n".join(map(lambda x: "* " + x, finalNames)))
         self.sendKmail(Kmail(uid, text))
         return "Monster list sent."
     

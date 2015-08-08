@@ -197,40 +197,35 @@ class BaseManager(EventSubsystem.EventCapable,
                 mod = m.module
                 self._log.info("Initializing {} ({})."
                                 .format(mod.id, mod.__class__.__name__))
-                success = False
-                if mod.id in self._persist:
-                    try:
-                        state = self._persist[mod.id]
-                        if state is None:
-                            self._log.info("Null state for module {}, using "
-                                           "default...".format(mod.id))
-                            state = mod.initialState
-                            
-                        if len(str(state)) > 500:
-                            self._log.debug("Initializing module {} ({}) with "
-                                            "state {{TOO LONG TO FIT}}"
-                                            .format(mod.id, 
-                                                    mod.__class__.__name__))
-                        else:
-                            self._log.debug("Initializing module {} ({}) with "
-                                            "state {}"
-                                            .format(mod.id, 
-                                                    mod.__class__.__name__, 
-                                                    state))
-                        mod.initialize(state, initData)
-                        success = True
-                    except (KeyboardInterrupt, SystemExit, 
-                            SyntaxError, FatalError):
-                        raise
-                    except Exception:
-                        self._log.exception("ERROR initializing module "
-                                            "with persistent state")
-                        self._log.error("Reverting to unknown state...")
-                if not success:
-                    self._log.info("No state detected for module {0.id} "
-                                   "({0.__class__.__name__}); using default "
-                                   "state {0.initialState}".format(mod))
-                    mod.initialize(mod.initialState, initData)
+                try:
+                    state = self._persist.get(mod.id, None)
+                    if state is None:
+                        self._log.info("Null state for module {}, using "
+                                       "default...".format(mod.id))
+                        state = mod.initialState
+                        
+                    if len(str(state)) > 500:
+                        self._log.debug("Initializing module {} ({}) with "
+                                        "state {{TOO LONG TO FIT}}"
+                                        .format(mod.id, 
+                                                mod.__class__.__name__))
+                    else:
+                        self._log.debug("Initializing module {} ({}) with "
+                                        "state {}"
+                                        .format(mod.id, 
+                                                mod.__class__.__name__, 
+                                                state))
+                    mod.initialize(state, initData)
+                except (KeyboardInterrupt, SystemExit, 
+                        SyntaxError, FatalError, 
+                        NameError, ImportError,
+                        MemoryError, NotImplementedError,
+                        SystemError, TypeError):
+                    raise
+                except Exception as e:
+                    self._log.exception("ERROR initializing module "
+                                        "with persistent state")
+                    mod.initializationFailed(state, initData, e)
                 mod.heartbeatRegister(hbSys)
             self._log.info("---- Finished initializing modules ----")
 

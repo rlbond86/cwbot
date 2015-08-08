@@ -86,7 +86,27 @@ class BaseModule(EventSubsystem.EventCapable,
         lastKnownState. initData varies by the manager as well.
         '''
         self.debugLog("Empty initialization.")
-
+        
+        
+    def initializationFailed(self, lastKnownState, initData, lastError):
+        '''
+        If an error occurs during initialization, this function is called.
+        By default, it retries initialization with the default state of the
+        module (i.e., any saved state is erased).
+        If this function raises an exception, the system shuts down.
+        '''
+        self.errorLog('Initialization failed; retrying with default state {}'
+                 .format(self.initialState))
+        try:
+            self.initialize(self.initialState, initData)
+        except Exception as e:
+            if type(lastError) is type(e):
+                # throw the first error
+                raise lastError
+            else:
+                # well this is awkward
+                raise e
+            
 
     @property
     def state(self):

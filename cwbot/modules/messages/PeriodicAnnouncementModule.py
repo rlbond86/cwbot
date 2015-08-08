@@ -96,7 +96,7 @@ Show the message for the next [[9999]] days (counting today)
         self._messages = {} 
         self._firstTime = True
         self._rolloverTime = 0 
-        self._doFinishInit = threading.Event() 
+        self._initializationValid = False
         self._run = threading.Event() 
         super(PeriodicAnnouncementModule, self).__init__(manager, 
                                                          identity, 
@@ -125,8 +125,20 @@ Show the message for the next [[9999]] days (counting today)
                          'index': min(v['index'], len(order))}) 
             elif not v['hard']:
                 self._messages[k] = v
-            
-        self._doFinishInit.set() 
+        self._initializationValid = True
+        r2 = StatusRequest(self.session) 
+        d2 = self.tryRequest(r2) 
+        self._rolloverTime = int(d2['rollover'])
+        self._run.set() 
+        
+        
+    def initializationFailed(self, lastKnownState, initData, lastError):
+        if not self._initializationValid:
+            # reset state
+            super(PeriodicAnnouncementModule, self).initializationFailed(lastKnownState, initData)
+        else:
+            # don't reset state; just crash
+            raise lastError
         
         
     def _configure(self, config): 
@@ -183,12 +195,6 @@ Show the message for the next [[9999]] days (counting today)
                                      'last': 0,
                                      'expires': 0,
                                      'description': ""} 
-                                                                                    
-                                                                                    
-    def _finishInitialization(self): 
-        r2 = StatusRequest(self.session) 
-        d2 = self.tryRequest(r2) 
-        self._rolloverTime = int(d2['rollover']) 
         
         
     def _processKmail(self, message):
@@ -358,10 +364,6 @@ Show the message for the next [[9999]] days (counting today)
 
 
     def _heartbeat(self): 
-        if self._doFinishInit.is_set(): 
-            self._doFinishInit.clear() 
-            self._finishInitialization() 
-            self._run.set() 
         if self._run.is_set(): 
             self._checkOrdering()
             self._deleteExpired()

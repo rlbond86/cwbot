@@ -97,7 +97,7 @@ class ClanRankModule(BaseModule):
         self._execTime = None
         self._immediate = None
         self._bootFrequencyDays = None
-        self._doFinishInit = threading.Event()
+        self._stateLoaded = False
         self._titles = {}
         self._safeRanks = self._safeTitles = None
         self._stopNow = threading.Event()
@@ -149,16 +149,11 @@ class ClanRankModule(BaseModule):
         
         
     def initialize(self, state, initData):
-        self._userDb = state['userDb']
+        self._stateLoaded = False
+        self._userDb = state.get('userDb', {})
         self._lastRun = state.get('lastRun', 0)
         self._inactiveAstrals = state.get('inactiveAstrals', {})
-        # initialization will be finished in the first heartbeat thread.
-        # we do NOT want anything that could throw an exception here! That
-        # would reset the state
-        self._doFinishInit.set()
-        
-        
-    def _finishInitialization(self):
+        self._stateLoaded = True
         # get list of clan members (both in whitelist and roster)
         self.log("Initializing ranks...")
         r1 = ClanWhitelistRequest(self.session)
@@ -195,7 +190,7 @@ class ClanRankModule(BaseModule):
                      'nextRankId': nextRankId,
                      'rankName': rankname})
             except ValueError:
-                raise "ClanRankModule: error parsing rank {}".format(rankname)
+                raise FatalError("ClanRankModule: error parsing rank {}".format(rankname))
         
         # pick a random time to run today
         assumedExecTime = 7200
@@ -212,6 +207,16 @@ class ClanRankModule(BaseModule):
                                                 latestPossibleExecTime)
             self.log("Running rankings in {} minutes."
                      .format(int((self._execTime - time.time()) / 60)))
+                     
+                     
+    def initializationFailed(self, lastKnownState, initData, lastError):
+        # never clear state if an exception occurs
+        if not self._stateLoaded:
+            self._log.critical("State corrupted")
+            raise lastError
+        else:
+            self._log.critical("Error in rank initialization")
+            raise lastError
 
     
     @property
@@ -783,9 +788,6 @@ class ClanRankModule(BaseModule):
             
             
     def _heartbeat(self):
-        if self._doFinishInit.is_set():
-            self._doFinishInit.clear()
-            self._finishInitialization()
         if self._execTime is None:
             return
         if time.time() > self._execTime:
