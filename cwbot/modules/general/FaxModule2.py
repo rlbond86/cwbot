@@ -418,7 +418,7 @@ class FaxModule2(BaseChatModule):
             if result[1] < 1:
                 break # character savings is less than 1 character per item
             bestPP = result[0]
-            preLen, postLen = map(len, bestPP[0])
+            preLen, postLen = map(len, bestPP)
             # get unique part of each monster
             cores = []
             for member in prefixPostfixMap[bestPP]:
