@@ -403,7 +403,7 @@ class FaxModule2(BaseChatModule):
             for pp, members in prefixPostfixMap.items():
                 numMembers = sum(1 for entry in members if entry in splitMonsterNames)
                 if numMembers < 2:
-                    prefixPostfixSavings[pp] = -1
+                    averagePrefixPostfixSavings[pp] = -1
                     continue
                 savings = len(pp[0]) + len(pp[1])
                 savings += 1 if pp[0] else 0 # space before
@@ -414,7 +414,7 @@ class FaxModule2(BaseChatModule):
                 averagePrefixPostfixSavings[pp] = float(savings) / numMembers
             if not averagePrefixPostfixSavings:
                 break
-            result = max(prefixPostfixSavings.items(), key=lambda x: x[1])
+            result = max(averagePrefixPostfixSavings.items(), key=lambda x: x[1])
             if result[1] < 1:
                 break # character savings is less than 1 character per item
             bestPP = result[0]
