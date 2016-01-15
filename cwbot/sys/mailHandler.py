@@ -52,7 +52,7 @@ _extraItemText = "(Extra items attached.)"
 _doNotSendItems = set([1649,5668,5674,3054,3624,2307,2313,2306,
                        2312,2305,2311,2308,2314,2304,2310,3274,
                        3275,5539,1995,1996,1997,4333,3280,4530,
-                       625,1923])
+                       625,1923,4811])
 _withholdItemErrors = [None,
                        kol.Error.ITEM_NOT_FOUND,
                        kol.Error.USER_IN_HARDCORE_RONIN,
@@ -286,6 +286,9 @@ class MailHandler(ExceptionThread):
         with self.__lock:
             if responses:
                 for response in responses:
+                    if 'items' in response:
+						response['items'] = [item for item in response['items']
+						                     if item['id'] not in _doNotSendItems]
                     self._checkItems(response)
             con = self._db.getDbConnection(isolation_level="IMMEDIATE")
             try:
