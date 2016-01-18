@@ -42,7 +42,7 @@ patterns = {
     "inventorySingleItem" : r'<img [^>]*descitem\(([0-9]+)[^>]*></td><td[^>]*><b[^>]*>([^<>]+)</b>&nbsp;<span><\/span>',
     "inventoryMultipleItems" : r'<img [^>]*descitem\(([0-9]+)[^>]*></td><td[^>]*><b[^>]*>([^<>]+)</b>&nbsp;<span>\(([0-9]+)\)<\/span>',
     "itemAutosell" : r'<br>Selling Price: <b>(\d*) Meat\.<\/b>',
-    "itemImage" : r'<img src="http:\/\/images\.kingdomofloathing\.com\/itemimages\/(.*?)"',
+    "itemImage" : r'<img src="(?:https?:\/\/|\/\/|\/|)images\.kingdomofloathing\.com\/itemimages\/(.*?)"',
     "itemName" : r'<b>(.+?)<\/b>',
     "itemType" : r'<br>Type: <b>([^<]*)<.*\/b><br>',
     "tooFull" : r"You're too full to eat that\.",

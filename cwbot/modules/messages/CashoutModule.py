@@ -1,5 +1,6 @@
 from cwbot.modules.BaseKmailModule import BaseKmailModule
-from kol.database.ItemDatabase import getItemFromId
+from kol.database.ItemDatabase import getOrDiscoverItemFromId
+import kol.Error
 
 
 class CashoutModule(BaseKmailModule):
@@ -31,12 +32,20 @@ class CashoutModule(BaseKmailModule):
                                                     "stored for you.")
             text = "Your balance: \n"
             for iid, qty in items.items():
-                text += ("\n{}: {}".format(qty, getItemFromId(iid).get(
-                                          'name', "item ID {}".format(iid))))
+                try:
+                    itemName = getOrDiscoverItemFromId(iid, session).get(
+                                          'name', "item ID {}".format(iid))
+                except kol.Error.Error:
+                    itemName = "item ID {}".format(iid)
+                text += ("\n{}: {}".format(qty, itemName))
             if meat > 0:
                 text += "\n{} meat".format(meat)
+            text += "\n\nIf you are ready to retrieve your items, send a kmail with the text \"cashout\".\n"
+            text += "\nIf you don't want your items back, send a kmail with the text \"clear balance\"."
             return self.newMessage(message.uid, text)
-
+        elif message.text.strip().lower() == "clear balance":
+            self.parent.director.clearBalance(message.uid)
+            return self.newMessage(message.uid, "Your balance has been cleared.")
 
     def _kmailDescription(self):
         return ("CASHING OUT: If I am holding any items for you, send a kmail "

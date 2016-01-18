@@ -1,7 +1,7 @@
 from kol.request.MallItemSearchRequest import MallItemSearchRequest
 from kol.request.MallItemPurchaseRequest import MallItemPurchaseRequest
 from kol.request.StatusRequest import StatusRequest
-from kol.database.ItemDatabase import getItemFromId
+from kol.database.ItemDatabase import getOrDiscoverItemFromId
 import kol.Error
 from cwbot.util.tryRequest import tryRequest
 from cwbot.locks import InventoryLock
@@ -26,7 +26,7 @@ def buyFromMall(session, itemId, quantity=1, maxPrice=0, logFunc=None):
                               kol.Error.USER_IN_HARDCORE_RONIN)
 
     with InventoryLock.lock:
-        item = getItemFromId(itemId)
+        item = getOrDiscoverItemFromId(itemId, session)
         itemName = item.get('name', str(itemId))
         numTries = 0
         numBought = 0

@@ -306,6 +306,11 @@ class CommunicationDirector(EventSubsystem.EventCapable,
         automatically withheld by the MailHandler if a user is in HC/Ronin
         and must be manually released. """ 
         return self._mailHandler.getDeferredItems(uid)
+        
+        
+    def clearBalance(self, uid):
+        """ Clear the balance of withheld items to a user."""
+        self._mailHandler.clearDeferredItems(uid)
 
 
     def __del__(self):

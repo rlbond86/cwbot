@@ -15,7 +15,7 @@ def decode(jobj):
     return json.loads(jobj)
 
 
-def _ver1(filename):
+def _ver2(filename):
     con = None
     try:
         con = sql.connect(filename, timeout=10, 
@@ -24,22 +24,58 @@ def _ver1(filename):
             c = con.cursor()
             c.execute("PRAGMA user_version")
             ver = c.fetchone()[0]
-            if ver == 0:
-                c.execute("PRAGMA user_version=1")
-                return 1
-            elif ver == 1:
+            if ver < 2:
+                # check for existence of mail and ver2_update tables
+                c.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                tables = c.fetchall()
+                table_list = [item[0] for item in tables]
+                if 'mail' in table_list and 'ver2_update' in table_list:
+                    c.execute("DROP TABLE ver2_update")
+                    con.commit()
+                    c.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                    tables = c.fetchall()
+                    table_list = [item[0] for item in tables]
+                
+                if 'mail' in table_list and 'ver2_update' not in table_list:
+                    # add date/time field to mail table
+                    c.execute("PRAGMA table_info(mail)")
+                    columns = c.fetchall()
+                    if not any(true for entry in columns if entry[1] == 'timestamp'):
+                        c.execute("CREATE TABLE IF NOT EXISTS "
+                                  "ver2_update(id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                                  "kmailId INTEGER, state TEXT, userId INTEGER, "
+                                  "data TEXT, itemsOnly INTEGER, error INTEGER, "
+                                  "timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)")
+                        c.execute("INSERT INTO ver2_update (id, kmailId, state, userId, data, itemsOnly, error)"
+                                  "    SELECT id, kmailId, state, userId, data, itemsOnly, error"
+                                  "    FROM mail")
+                        con.commit()
+                        c.execute("DROP TABLE mail")
+                        c.execute("ALTER TABLE ver2_update RENAME TO mail")
+                        con.commit()
+                        
+                if 'mail' not in table_list and 'ver2_update' in table_list:
+                    c.execute("ALTER TABLE ver2_update RENAME TO mail")
+                    con.commit()
+
+                c.execute("PRAGMA user_version=2")
+                return 2                
+            elif ver == 2:
+                c.execute("UPDATE mail SET timestamp=datetime('now') WHERE timestamp is NULL")
+                con.commit()
                 return ver
             else:
                 raise Exception("Invalid database version: {}".format(ver))
     finally:
         _closeConnection(con)
 
+
 class Database(object):
     """ A class that handles internal database operations. """
     
     
     _names = {'mail': 'mail', 'state': 'state', 'inventory': 'inventory'}
-    def __init__(self, filename, upgradeFunc=_ver1):
+    def __init__(self, filename, upgradeFunc=_ver2):
         self._filename = filename
 
         # integrity check
@@ -58,6 +94,7 @@ class Database(object):
             _closeConnection(con)
             
         # update to new version
+        self.createMailTransactionTable()
         self.version = upgradeFunc(filename)
         
         
@@ -141,7 +178,8 @@ class Database(object):
                 c.execute("CREATE TABLE IF NOT EXISTS "
                           "{}(id INTEGER PRIMARY KEY AUTOINCREMENT, "
                           "kmailId INTEGER, state TEXT, userId INTEGER, "
-                          "data TEXT, itemsOnly INTEGER, error INTEGER)"
+                          "data TEXT, itemsOnly INTEGER, error INTEGER, "
+                          "timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)"
                           .format(tableName))
         finally:
             _closeConnection(con)

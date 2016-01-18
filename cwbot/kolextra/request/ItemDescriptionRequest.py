@@ -1,8 +1,10 @@
-from GenericRequest import GenericRequest
+from kol.request.GenericRequest import GenericRequest
 from kol.manager import PatternManager
+import re
 
 class ItemDescriptionRequest(GenericRequest):
     "Gets the description of an item and then parses various information from the response."
+    _itemIdPattern = re.compile(r'(?i)<!--\s*itemid:\s*(\d+)\s*-->')
 
     def __init__(self, session, descId):
         super(ItemDescriptionRequest, self).__init__(session)
@@ -56,3 +58,11 @@ class ItemDescriptionRequest(GenericRequest):
         match = jewelrymakingPattern.search(self.responseText)
         if match:
             self.responseData["isJewelrymakingComponent"] = True
+            
+        # See if the itemId is listed
+        match = self._itemIdPattern.search(self.responseText)
+        if match:
+            self.responseData["id"] = int(match.group(1))
+        else:
+            self.responseData["id"] = None
+            

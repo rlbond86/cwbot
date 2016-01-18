@@ -18,7 +18,7 @@ from cwbot.common.exceptions import MessageError
 from cwbot.sys.database import encode, decode
 from cwbot.util.tryRequest import tryRequest
 from cwbot.kolextra.manager.MailboxManager import MailboxManager
-from kol.database.ItemDatabase import getItemFromId
+from kol.database.ItemDatabase import getOrDiscoverItemFromId
 from cwbot.kolextra.request.GetDisplayCaseRequest import GetDisplayCaseRequest
 from cwbot.kolextra.request.TakeItemsFromDisplayCaseRequest import \
                             TakeItemsFromDisplayCaseRequest 
@@ -45,14 +45,18 @@ _couldNotSendItemsText = ("(I wanted to send you some items, but there was "
                           "Send me a kmail with the text "
                           "'cashout' to retrieve your stuff or 'balance' "
                           "to see what I owe you.)")
-_outOfStockText = ("(I wanted to send you some items, but I seem to be "
-                   "out of stock. I've notified the administrators.")
+_outOfStockText = ("I wanted to send you some items, but I seem to be "
+                   "out of stock. Please notify the administrators.\n\n"
+                   "Send me a kmail with the text "
+                   "'cashout' to retrieve your stuff (assuming I get restocked) "
+                   "or 'balance' to see what I owe you.")
 _extraItemText = "(Extra items attached.)"
 
 _doNotSendItems = set([1649,5668,5674,3054,3624,2307,2313,2306,
                        2312,2305,2311,2308,2314,2304,2310,3274,
                        3275,5539,1995,1996,1997,4333,3280,4530,
-                       625,1923,4811])
+                       625,1923,
+                       None])
 _withholdItemErrors = [None,
                        kol.Error.ITEM_NOT_FOUND,
                        kol.Error.USER_IN_HARDCORE_RONIN,
@@ -186,7 +190,7 @@ class MailHandler(ExceptionThread):
         logConfig.setFileHandler("mail-handler", 'log/mailhandler.log')
         self._log = logging.getLogger("mail-handler")
         self._log.info("---- Mail Handler startup ----")
-        if self._db.version > 1:
+        if self._db.version > 2:
             raise Exception("MailHandler cannot use database version {}"
                             .format(self._db.version))
         self._s = session
@@ -284,12 +288,6 @@ class MailHandler(ExceptionThread):
         proper response in case of a power failure.
         """
         with self.__lock:
-            if responses:
-                for response in responses:
-                    if 'items' in response:
-						response['items'] = [item for item in response['items']
-						                     if item['id'] not in _doNotSendItems]
-                    self._checkItems(response)
             con = self._db.getDbConnection(isolation_level="IMMEDIATE")
             try:
                 with con:
@@ -397,7 +395,19 @@ class MailHandler(ExceptionThread):
                 message = decode(rows[0]['data'])
                 return (message['meat'], _itemsToDict(message['items']))
         finally:
-            con.close()        
+            con.close()      
+
+
+    def clearDeferredItems(self, uid):
+        con = self._db.getDbConnection()
+        try:
+            c = con.cursor()
+            with con:
+                c.execute("DELETE FROM {} WHERE state=? AND userId=?"
+                          .format(self._name), (self.OUTBOX_DEFERRED, uid))
+        finally:
+            con.close()      
+        
 
             
     def _insertSplitKmail(self, cursor, state, message, reserveItems):
@@ -626,10 +636,12 @@ class MailHandler(ExceptionThread):
                 warningText = ("Warning: {} has an item deficit of: \n"
                                .format(self._props.userName))
                 for iid, d in deficit.items():
-                    warningText += ("\n{}: {}"
-                                    .format(
-                                        d, getItemFromId(iid).get(
-                                            'name', "item ID {}".format(iid))))
+                    try:
+                        itemName = getOrDiscoverItemFromId(iid, self._s).get(
+                                            'name', "item ID {}".format(iid))
+                    except kol.Error.Error:
+                        itemName = "item ID {}".format(iid)
+                    warningText += ("\n{}: {}".format(d, itemName))
                 if meatOwed > meat:
                     warningText += "\n{} meat".format(meatOwed-meat)
                 with con:
@@ -835,6 +847,63 @@ class MailHandler(ExceptionThread):
         sentTimes = {}
         for msg in c.fetchall():
             message = decode(msg['data'])
+            msgId = int(msg['id'])
+            userId = int(msg['userId'])
+            if 'items' in message:
+                message['items'] = [item for item in message['items']
+                                     if item['id'] not in _doNotSendItems]
+            success = False
+            withheld_items = []
+            withheld_names = {}
+            # remove items that can't be sent (because we are out of them)
+            while not success:
+                try:
+                    self._checkItems(message)
+                    success = True
+                except MessageError as e:
+                    match = re.search(r'item (\d+)\s', str(e))
+                    if match is None:
+                        raise
+                    id_ = int(match.group(1))
+                    response_list_without = [item for item in message['items']
+                                             if item['id'] != id_]
+                    excluded = [item for item in message['items']
+                                if item['id'] == id_]
+                    if (len(excluded) + len(response_list_without) != len(message['items'])
+                            or len(excluded) == 0):
+                        raise MessageError("Could not exclude item {}".format(id_))
+                    message['items'] = response_list_without
+                    withheld_items.extend(excluded)
+            for item in withheld_items:
+                try:
+                    withheld_names[item['name']] = int(item.get('quantity', 1))
+                except KeyError:
+                    try:
+                        itemName = getOrDiscoverItemFromId(item['id'], self._s).get(
+                                            'name', "item ID {}".format(item['id']))
+                    except kol.Error.Error:
+                        itemName = "item ID {}".format(item['id'])
+                    withheld_names[itemName] = int(item.get('quantity', 1))
+                
+            if withheld_items:
+                self._log.warning("Could not send the following items: {}".format(withheld_items))
+                with con:
+                    c2 = con.cursor()
+                    c2.execute("UPDATE {} SET data=? WHERE id=?".format(self._name),
+                               (encode(message), msgId))
+                    out_of_stock_list_str = "\n".join(
+                                                "{}x {}".format(v,k)
+                                                for k,v in withheld_names.items())
+                    c2.execute("INSERT INTO {} (state, userId, data) "
+                               "VALUES(?, ?, ?)".format(self._name),
+                               (self.OUTBOX_SENDING, userId, 
+                                encode({'userId': userId, 
+                                        'text': _outOfStockText + '\n\n' + out_of_stock_list_str, 
+                                        'meat': 0, 'items': []})))
+                    c2.execute("INSERT INTO {} (state, userId, data) "
+                               "VALUES(?, ?, ?)".format(self._name),
+                               (self.OUTBOX_WITHHELD, userId,
+                                encode({'userId': userId, 'text': _deferredText, 'meat': 0, 'items': withheld_items})))
             self._log.debug("Sending message {}: {}".format(msg['id'],
                                                             message))
             if not self._online():

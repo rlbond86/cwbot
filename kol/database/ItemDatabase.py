@@ -6,7 +6,7 @@ import kol.Error as Error
 from kol.data import Items
 from kol.manager import FilterManager
 from kol.util import Report
-
+from cwbot.kolextra.request.ItemDescriptionRequest import ItemDescriptionRequest
 import cPickle as pickle
 import os
 import datetime
@@ -18,6 +18,7 @@ __itemsByDescId = {}
 __itemsByName = {}
 __discoveryDate = None
 __isLoaded = False
+__dbChanged = False
 
 discoveryFile = "data/itemDiscovery.dat"
 
@@ -27,6 +28,9 @@ def init():
     database is ever accessed as it ensures that the database is populated
     with all of the data it needs.
     """
+    global __dbChanged
+    __dbChanged = False
+    loadItemsFromFile()
     global __isInitialized
     if __isInitialized == True:
         return
@@ -53,20 +57,34 @@ def addItem(item):
     __itemsByDescId[item["descId"]] = item
     __itemsByName[item["name"]] = item
 
-def getItemFromId(itemId):
+def getItemFromId(session, itemId):
     "Returns information about an item given its ID."
+    global __dbChanged
+
     if not __isInitialized:
         init()
 
     try:
         return __itemsById[itemId].copy()
     except KeyError:
-        raise Error.Error("Item ID %s is unknown." % itemId, Error.ITEM_NOT_FOUND)
+        try:
+            from kol.request.ItemInformationRequest import ItemInformationRequest
+            r = ItemInformationRequest(session, itemId)
+            result = r.doRequest()
+            item = result["item"]
+            addItem(item)
+            Report.trace("itemdatabase", "Discovered new item: %s" % item["name"])
+            context = { "item" : item }
+            FilterManager.executeFiltersForEvent("discoveredNewItem", context, session=session, item=item)
+            __dbChanged = True
+            return item
+        except (KeyError, Error.Error):
+            raise Error.Error("Item ID %s is unknown." % itemId, Error.ITEM_NOT_FOUND)
 
 def getOrDiscoverItemFromId(itemId, session):
-    return _try3(getItemFromId, session, itemId)
+    return _try3(getItemFromId, session, session, itemId)
 
-def getItemFromDescId(descId):
+def getItemFromDescId(session, descId):
     "Returns information about an item given its description ID."
     if not __isInitialized:
         init()
@@ -74,10 +92,22 @@ def getItemFromDescId(descId):
     try:
         return __itemsByDescId[descId].copy()
     except KeyError:
-        raise Error.Error("Item with description ID %s is unknown." % descId, Error.ITEM_NOT_FOUND)
+        myError = Error.Error("Item with description ID %s is unknown." % descId, Error.ITEM_NOT_FOUND)
+        try:
+            r = ItemDescriptionRequest(session, descId)
+            result = r.doRequest()
+            if not result or result['id'] is None:
+                raise myError
+            id_ = int(result['id'])
+            if id_ in __itemsById:
+                return __itemsById[id_].copy()
+            else:
+                return getItemFromId(id_)
+        except (KeyError, Error.Error):
+            raise myError
 
 def getOrDiscoverItemFromDescId(descId, session):
-    return _try3(getItemFromDescId, session, descId)
+    return _try3(getItemFromDescId, session, session, descId)
 
 def getItemFromName(itemName):
     "Returns information about an item given its name."
@@ -93,10 +123,7 @@ def getOrDiscoverItemFromName(itemName, session):
     return _try3(getItemFromName, session, itemName)
 
 def discoverMissingItems(session):
-    global __isLoaded
-    if not __isLoaded:
-        loadItemsFromFile()
-    newInformation = False
+    global __dbChanged
     from kol.request.InventoryRequest import InventoryRequest
     from kol.request.ItemInformationRequest import ItemInformationRequest
     invRequest = InventoryRequest(session)
@@ -112,14 +139,12 @@ def discoverMissingItems(session):
                 Report.trace("itemdatabase", "Discovered new item: %s" % item["name"])
                 context = { "item" : item }
                 FilterManager.executeFiltersForEvent("discoveredNewItem", context, session=session, item=item)
-                newInformation = True
+                __dbChanged = True
             except:
                 pass
-    if newInformation or not __isLoaded:
-        saveItemsToFile()
-        __isLoaded = True
 
 def loadItemsFromFile():
+    global __dbChanged
     try:
         f = open(discoveryFile, 'rb')
         global __itemsById, __itemsByDescId, __itemsByName, __discoveryDate
@@ -129,15 +154,28 @@ def loadItemsFromFile():
             __itemsByDescId = pickle.load(f)
             __itemsByName = pickle.load(f)
         else:
-            print("Item cache expired.")
+            Report.trace("itemdatabase", "Item cache expired")
             __discoveryDate = datetime.datetime.now()
+            __dbChanged = True
+            __itemsById = {}
+            __itemsByDescId = {}
+            __itemsByName = {}
+            saveItemsToFile()
         f.close()
-        print("Loaded %d items from file." % len(__itemsById))
+        Report.trace("itemdatabase", "Loaded %d items from file." % len(__itemsById))
     except:
-        print("Error opening %s for loading" % (discoveryFile))
+        Report.trace("itemdatabase", "Error opening %s for loading" % (discoveryFile))
         __discoveryDate = datetime.datetime.now()
+        __dbChanged = True
+        __itemsById = {}
+        __itemsByDescId = {}
+        __itemsByName = {}
+        deleteItemCache()
     
 def saveItemsToFile():
+    global __dbChanged
+    if not __dbChanged:
+        return
     try:
         f = open(discoveryFile, 'wb')
         pickle.dump(__discoveryDate, f)
@@ -145,15 +183,21 @@ def saveItemsToFile():
         pickle.dump(__itemsByDescId, f)
         pickle.dump(__itemsByName, f)
         f.close()
-        print("Wrote %d items to file." % len(__itemsById))
+        Report.trace("itemdatabase", "Wrote %d items to file." % len(__itemsById))
+        __dbChanged = False
     except:
-        try:
-            print("Error opening %s for writing" % (discoveryFile))            
-            os.remove(discoveryFile)
-        except:
-            pass
+        Report.trace("itemdatabase", "Error opening %s for writing" % (discoveryFile))
+        deleteItemCache()
+            
+def deleteItemCache():
+    try:
+        Report.trace("itemdatabase", "Deleted item cache" % (discoveryFile))
+        os.remove(discoveryFile)
+    except:
+        pass
         
 def reset():
+    saveItemsToFile()
     __isInitialized = False
     __itemsById = {}
     __itemsByDescId = {}

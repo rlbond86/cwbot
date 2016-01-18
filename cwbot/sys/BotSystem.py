@@ -17,6 +17,7 @@ from cwbot.common.InitData import InitData
 from kol.request.StatusRequest import StatusRequest
 from cwbot.kolextra.request.UserProfileRequest import UserProfileRequest
 from cwbot.util.tryRequest import tryRequest
+from kol.database.ItemDatabase import saveItemsToFile, deleteItemCache
 
 
 def _quoteConfig(cfg):
@@ -202,6 +203,7 @@ class BotSystem(EventSubsystem.EventCapable,
         
     def loop(self):
         """ The main loop of the CWbot program. """
+        normalExit = True
         try:
             self._log.info("Entered main loop.")
             self._raiseEvent("startup", None)
@@ -247,10 +249,15 @@ class BotSystem(EventSubsystem.EventCapable,
                            .format(e.__class__.__name__))
             raise SystemExit
         except Exception as e:
+            normalExit = False
             self._raiseEvent("crash", None, {'args': e.__class__.__name__})
             self._log.exception("Unknown error.")
             raise
         finally:
+            if normalExit:
+                saveItemsToFile()
+            else:
+                deleteItemCache()
             self._cleanup()
             
             
