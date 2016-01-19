@@ -40,7 +40,7 @@ def _ver2(filename):
                     # add date/time field to mail table
                     c.execute("PRAGMA table_info(mail)")
                     columns = c.fetchall()
-                    if not any(true for entry in columns if entry[1] == 'timestamp'):
+                    if not any(True for entry in columns if entry[1] == 'timestamp'):
                         c.execute("CREATE TABLE IF NOT EXISTS "
                                   "ver2_update(id INTEGER PRIMARY KEY AUTOINCREMENT, "
                                   "kmailId INTEGER, state TEXT, userId INTEGER, "
