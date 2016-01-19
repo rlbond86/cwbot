@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from cwbot.main import main
 
 

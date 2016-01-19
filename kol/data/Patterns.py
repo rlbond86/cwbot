@@ -240,7 +240,7 @@ patterns = {
     "playerName" : r'Ascension History \(<a[^>]*><font[^>]*>(.*?)<\/font><\/a>\)',
 
     # User Profile patterns.
-    "profileUserName" : r'<td valign="?center"?>(?:<center>)?<b>([^<>]+)<\/b> \(#[0-9]+\)<br>',
+    "profileUserName" : r'<td valign="?center"?>(?:<center>)?(?:<span style="position: relative;font-size: 200%">)?<b>([^<>]+)<\/b> \(#[0-9]+\)<br>',
     "profileClan" : r'Clan: <b><a class=nounder href="showclan\.php\?whichclan=([0-9]+)">(.*?)<\/a>',
     "profileNumAscensions" : r'Ascensions<\/a>:<\/b><\/td><td>([0-9,]+)<\/td>',
     "profileNumTrophies" : r'Trophies Collected:<\/b><\/td><td>([0-9,]+)<\/td>',

@@ -193,7 +193,7 @@ class ClanRankModule(BaseModule):
                 raise FatalError("ClanRankModule: error parsing rank {}".format(rankname))
         
         # pick a random time to run today
-        assumedExecTime = 7200
+        assumedExecTime = 3600
         latestPossibleExecTime = self._rolloverTime - assumedExecTime
         if time.time() < self._lastRun:
             self.log("Already performed ranking today.")
