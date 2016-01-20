@@ -57,7 +57,7 @@ def addItem(item):
     __itemsByDescId[item["descId"]] = item
     __itemsByName[item["name"]] = item
 
-def getItemFromId(session, itemId):
+def getItemFromId(itemId, session=None):
     "Returns information about an item given its ID."
     global __dbChanged
 
@@ -68,6 +68,8 @@ def getItemFromId(session, itemId):
         return __itemsById[itemId].copy()
     except KeyError:
         try:
+            if session is None:
+                raise KeyError()
             from kol.request.ItemInformationRequest import ItemInformationRequest
             r = ItemInformationRequest(session, itemId)
             result = r.doRequest()
@@ -82,9 +84,9 @@ def getItemFromId(session, itemId):
             raise Error.Error("Item ID %s is unknown." % itemId, Error.ITEM_NOT_FOUND)
 
 def getOrDiscoverItemFromId(itemId, session):
-    return _try3(getItemFromId, session, session, itemId)
+    return _try3(getItemFromId, session, itemId, session)
 
-def getItemFromDescId(session, descId):
+def getItemFromDescId(descId, session=None):
     "Returns information about an item given its description ID."
     if not __isInitialized:
         init()
@@ -94,6 +96,8 @@ def getItemFromDescId(session, descId):
     except KeyError:
         myError = Error.Error("Item with description ID %s is unknown." % descId, Error.ITEM_NOT_FOUND)
         try:
+            if session is None:
+                raise KeyError()
             r = ItemDescriptionRequest(session, descId)
             result = r.doRequest()
             if not result or result['id'] is None:
@@ -102,12 +106,15 @@ def getItemFromDescId(session, descId):
             if id_ in __itemsById:
                 return __itemsById[id_].copy()
             else:
-                return getItemFromId(id_)
+                try:
+                    return getItemFromId(id_, session)
+                except Error.Error:
+                    return result
         except (KeyError, Error.Error):
             raise myError
 
 def getOrDiscoverItemFromDescId(descId, session):
-    return _try3(getItemFromDescId, session, session, descId)
+    return _try3(getItemFromDescId, session, descId, session)
 
 def getItemFromName(itemName):
     "Returns information about an item given its name."
