@@ -33,7 +33,7 @@ class CashoutModule(BaseKmailModule):
             text = "Your balance: \n"
             for iid, qty in items.items():
                 try:
-                    itemName = getOrDiscoverItemFromId(iid, session).get(
+                    itemName = getOrDiscoverItemFromId(iid, self.session).get(
                                           'name', "item ID {}".format(iid))
                 except kol.Error.Error:
                     itemName = "item ID {}".format(iid)
