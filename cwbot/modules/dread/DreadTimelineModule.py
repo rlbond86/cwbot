@@ -260,14 +260,9 @@ class DreadTimelineModule(BaseDungeonModule):
             for area in range(3):
                 roundedKills = (t['kills'][area] // 50) * 50
                 if roundedKills > lastKills[area]:
-                    print("Area {}, last={}, new={}"
-                          .format(area, lastKills[area], roundedKills))
                     lastKills[area] = roundedKills
                     areaLines[area].append("-+- {}% complete"
                                            .format(int(roundedKills // 10)))
-                else:
-                    print("Area {}, last={}, current={}"
-                          .format(area, lastKills[area], roundedKills))
             balanceLines(areaLines, "-+-")
         
         # now format it correctly

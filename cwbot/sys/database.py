@@ -1,5 +1,8 @@
 import sqlite3 as sql
 import json
+import shutil
+import os.path
+import logging
 
 
 def _closeConnection(con):
@@ -13,6 +16,54 @@ def encode(obj):
 
 def decode(jobj):
     return json.loads(jobj)
+    
+    
+def _needToBackup(con):
+    with con:
+        c = con.cursor()
+        c.execute("CREATE TABLE IF NOT EXISTS "
+                  "backupdata(key TEXT PRIMARY KEY NOT NULL ON CONFLICT REPLACE, "
+                             "value STRING) "
+                  "WITHOUT ROWID")
+        c.execute("SELECT * FROM backupdata WHERE key='last_backup' AND value=date('now')")
+        vals = c.fetchall()
+        if vals:
+            return False
+        return True
+        
+        
+def _backup(filename):
+    try:
+        # write (or overwrite) temporary file
+        shutil.copy2(filename, filename + '.tmp')
+        
+        # rename old backups
+        highestConsecutive = -1
+        for i in range(9):
+            if os.path.exists(filename + '.' + str(i)):
+                highestConsecutive = i
+            else:
+                break
+        for i in range(highestConsecutive, -1, -1):
+            shutil.move(filename + '.' + str(i), filename + '.' + str(i+1))
+        
+        # move backup
+        shutil.move(filename + '.tmp', filename + '.0')
+        
+        # write successful backup
+        con = sql.connect(filename, timeout=10, 
+                          isolation_level="EXCLUSIVE")
+        with con:
+            c = con.cursor()
+            c.execute("INSERT OR REPLACE INTO backupdata VALUES('last_backup', date('now'))")
+        logging.getLogger("database").info("Backed up database")
+        return True
+    except shutil.Error:
+        logging.getLogger("database").warn("Error creating database backup")
+        return False
+#    except sql.Error:
+#        logging.getLogger("database").warn("Could not update last_backup flag in database")
+#        return True
 
 
 def _ver2(filename):
@@ -30,6 +81,7 @@ def _ver2(filename):
                 tables = c.fetchall()
                 table_list = [item[0] for item in tables]
                 if 'mail' in table_list and 'ver2_update' in table_list:
+                    logging.getLogger("database").info("Rolling back partial upgrade to v2...")
                     c.execute("DROP TABLE ver2_update")
                     con.commit()
                     c.execute("SELECT name FROM sqlite_master WHERE type='table'")
@@ -38,6 +90,7 @@ def _ver2(filename):
                 
                 if 'mail' in table_list and 'ver2_update' not in table_list:
                     # add date/time field to mail table
+                    logging.getLogger("database").info("Upgrading to v2...")
                     c.execute("PRAGMA table_info(mail)")
                     columns = c.fetchall()
                     if not any(True for entry in columns if entry[1] == 'timestamp'):
@@ -55,10 +108,12 @@ def _ver2(filename):
                         con.commit()
                         
                 if 'mail' not in table_list and 'ver2_update' in table_list:
+                    logging.getLogger("database").info("Finalizing v2 upgrade...")
                     c.execute("ALTER TABLE ver2_update RENAME TO mail")
                     con.commit()
 
                 c.execute("PRAGMA user_version=2")
+                logging.getLogger("database").info("Database upgraded.")
                 return 2                
             elif ver == 2:
                 c.execute("UPDATE mail SET timestamp=datetime('now') WHERE timestamp is NULL")
@@ -80,18 +135,24 @@ class Database(object):
 
         # integrity check
         con = None
+        doBackup = False
         try:
             con = sql.connect(self._filename, timeout=10, 
                               isolation_level="EXCLUSIVE")
             c = con.cursor()
-            c.execute("VACUUM")
             c.execute("PRAGMA integrity_check")
             result = c.fetchall()
             if result != [(u'ok',)]:
                 raise Exception("Database corrupted. First error = {}"
                                 .format(result[0][0]))
+            c.execute("VACUUM")
+            doBackup = _needToBackup(con)
         finally:
             _closeConnection(con)
+            
+        # perform backup
+        if doBackup:
+            backup_success = _backup(filename)
             
         # update to new version
         self.createMailTransactionTable()
