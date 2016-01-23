@@ -86,12 +86,17 @@ class MessageManager(BaseManager):
             mod = m.module
             clanOnly = m.clanOnly
             permission = m.permission
+            no_permissions = (permission in _noPermissions)
             if not clanOnly or self.checkClan(uid):
-                if (permission in _noPermissions or 
+                if (no_permissions or 
                     permission in self.properties.getPermissions(uid)):
                     newTxt = mod.extendedCall('kmail_description')
                     if newTxt is not None:
                         if newTxt not in helptext:
+                            if not no_permissions:
+                                newTxt = "[ADMIN] " + newTxt
+                            print newTxt
+                            print permission
                             helptext.append(newTxt)
         if not helptext:
             txt = "Sorry, I don't have any help available."
