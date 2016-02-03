@@ -154,7 +154,7 @@ class WalkieTalkieRepeater(BaseChatManager):
                 return self._showCommandSummary(msg, None, None)
         
         if msg['userId'] in self._otherBots:
-            m = re.search(r'''TALKIE \[([0-9 ])\]''', text)
+            m = re.search(r'''TALKIE \[([0-9 ]+)\]''', text)
             if m is not None:
                 otherNumChanges = int("".join(m.group(1).split()))
                 if otherNumChanges > self._numChanges:
