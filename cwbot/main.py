@@ -81,6 +81,7 @@ def loginLoop(myDb, props):
     successfulShutdown = False
     fastCrash = False
     cman = None
+    restartDatabase = False
     try:
         loginWait = 60
         s = openSession(props)
@@ -129,6 +130,7 @@ def loginLoop(myDb, props):
             log.info("Nightly maintenance; waiting to try again...")
             loginWait = 60
             successfulShutdown = True
+            restartDatabase = True
         if hasattr(inst, 'timeToWait'):
             loginWait = inst.timeToWait
         if props.debug:
@@ -211,7 +213,7 @@ def main(curFolder=None, connection=None):
     props = processArgv(sys.argv, curFolder) # set current folder
     props.connection = connection
     crashWait = 60
-    myDb = Database(databaseName) 
+    myDb = None
     loginWait = 0
     log = logging.getLogger()
     logging.getLogger("requests").setLevel(logging.INFO)
@@ -238,7 +240,11 @@ def main(curFolder=None, connection=None):
             # main section of login loop
             if exitEvent.is_set():
                 break
-            (loginWait, fastCrash) = loginLoop(myDb, props)
+            if myDb is None:
+                myDb = Database(databaseName) 
+            (loginWait, fastCrash, restartDatabase) = loginLoop(myDb, props)
+            if restartDatabase:
+                myDb = None
             if fastCrash:
                 # fast crash: perform exponential back-off
                 crashWait = min(2*60*60, crashWait*2)
