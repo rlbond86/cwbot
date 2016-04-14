@@ -22,6 +22,7 @@ class Session(object):
         self.userId = None
         self.userName = None
         self.userPasswordHash = None
+        self.password = None
         self.serverURL = None
         self.pwd = None
 
@@ -33,6 +34,7 @@ class Session(object):
         """
 
         self.userName = username
+        self.password = password
         self.userPasswordHash = hashlib.md5(password).hexdigest()
 
         # Grab the KoL homepage.

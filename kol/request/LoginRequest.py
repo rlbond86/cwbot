@@ -19,6 +19,14 @@ class LoginRequest(GenericRequest):
         hashKey = self.session.userPasswordHash + ":" + loginChallenge
         self.requestData['response'] = hashlib.md5(hashKey).hexdigest()
         self.requestData['challenge'] = loginChallenge
+        self.requestData['promo'] = ""
+        self.requestData['mrstore'] = ""
+        self.requestData['password'] = self.session.password
+        if "https://" not in self.url:
+            e = Error.Error("Could not establish HTTPS connection")
+            e.timeToWait = 900
+            raise e
+        
 
     def parseResponse(self):
         mainFramesetPattern = PatternManager.getOrCompilePattern('mainFrameset')
