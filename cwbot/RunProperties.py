@@ -1,4 +1,5 @@
 import os
+import logging
 from configObj.configobj import ConfigObj
 from configObj.validate import Validator
 from StringIO import StringIO
@@ -16,6 +17,7 @@ class RunProperties(object):
     username = string(default=my_username)
     password = string(default=my_password)
     rollover_wait = integer(min=60,default=480)
+    loglevel = option('info', 'debug', default='info')
     """
     
     admin_spec = """# administrator list
@@ -33,12 +35,13 @@ class RunProperties(object):
     """
 
 
-    version = "0.14.2"
+    version = "0.14.3"
     def __init__(self, debugMode, loginFile, adminFile, 
                  originalDir=os.getcwd(), altLogin=None):
         self.debug = debugMode
         if debugMode:
             print("Debug mode active")
+        self.loglevel = logging.INFO
         self.userName = None
         self.userId = None
         self.password = None
@@ -95,6 +98,8 @@ class RunProperties(object):
         
         self.userName = c['username']
         self.password = c['password']
+        if c['loglevel'] == "debug" or self.debug:
+            self.loglevel = logging.DEBUG
         if altLogin is not None:
             self.userName, self.password = altLogin
         self.rolloverWait = c['rollover_wait']

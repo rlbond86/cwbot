@@ -16,20 +16,19 @@ class ShortLevelNameFormatter(logging.Formatter):
         return logging.Formatter.format(self, record)
 
 
-def logConfig(debug=False):
+def logConfig(loglevel=logging.INFO):
     """ This function configures the bot's logging capability. """
     global __configDone
     if __configDone:
         return
     __configDone = True
     
-    level = logging.DEBUG if debug else logging.INFO
     log = logging.getLogger()
-    log.setLevel(level)
+    log.setLevel(loglevel)
 
     # define a Handler which writes INFO messages or higher to the sys.stderr
     console = logging.StreamHandler()
-    console.setLevel(level)
+    console.setLevel(loglevel)
     # set a format which is simpler for console use
     cFormatter = ShortLevelNameFormatter(
                 "%(asctime)s %(name)-18s: %(shortlevelname)-4s %(message)s",

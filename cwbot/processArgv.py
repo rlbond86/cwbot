@@ -53,9 +53,10 @@ def processArgv(argv, curFolder):
     altLogin = parsed.login
     debug = parsed.debug
     
-    logConfig.logConfig(debug)
+    p = RunProperties(debug, loginFile, adminFile, cwd, altLogin=altLogin)
+    logConfig.logConfig(p.loglevel)
     
     log.info("-------- Startup --------")
     log.info("Using working directory {}".format(os.getcwd()))
-
-    return RunProperties(debug, loginFile, adminFile, cwd, altLogin=altLogin)
+    
+    return p

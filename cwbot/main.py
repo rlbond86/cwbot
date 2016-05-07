@@ -194,7 +194,7 @@ def loginLoop(myDb, props):
                 log.exception("Error closing KoL session.")
             s = None
         log.info("----- Logged out. -----\n")
-    return (loginWait, fastCrash)
+    return (loginWait, fastCrash, restartDatabase)
 
     
 def signalHandler(signum, stackFrame):

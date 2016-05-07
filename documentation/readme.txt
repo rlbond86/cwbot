@@ -64,11 +64,12 @@ login.ini, which has the following format (ignore lines in <> angle braces):
 username = (account username)
 password = (account password)
 rollover_wait = (number of seconds to wait at rollover; default = 480)
+loglevel = (either "info" or "debug")
 <End of file login.ini>
 
 To start the bot - at the command line type:
-"python cwbot.py" (without the quotes). You can get help by typing
-"python cwbot.py --help"; this shows extra arguments like loading from
+"./cwbot.py" (without the quotes). You can get help by typing
+"./cwbot.py --help"; this shows extra arguments like loading from
 a different folder.
 On windows, you may need to instead type "c:\Python27\python cwbot.py"
 
