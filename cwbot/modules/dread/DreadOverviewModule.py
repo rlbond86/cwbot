@@ -116,7 +116,7 @@ class DreadOverviewModule(BaseDungeonModule):
         if d['killed'] >= 1000:
             txt += " BOSS "
         else:
-            txt += " {}% ".format(int(d['killed']/10))
+            txt += " {:.1%} ".format(float(d['killed'])/1000)
             
         calledStr = "?"
         n = self._likelihoodCalled[areaNum]
