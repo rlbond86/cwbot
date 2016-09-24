@@ -161,7 +161,11 @@ class HeartbeatSubsystem(object):
                                 and reAddList[0][0] + self._t < curTime):
                             self._enqueue(reAddList[0][1])
                             reAddList.popleft()
+            except Exception as e:
+                self._log.exception("Encountered error")
+                raise e
             finally:
+                self._stopEvent.set()
                 for th in self._threads:
                     th.stop()
                 for th in self._threads:

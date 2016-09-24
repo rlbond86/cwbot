@@ -154,7 +154,7 @@ should not be overridden.
 
 O._raiseEvent(self, subject, receiver=None, data={}): raises an event.
 subject should be a string. If receiver is None, all objects (including
-the sender) are notified. It is also possible to messages to a specific
+the sender) are notified. It is also possible to send messages to a specific
 class or a specific object. To send to a specific class, use receiver="NAME",
 where NAME is the name specified in the constructor. To send to a
 specific object, use receiver="__IDENTITY__", where IDENTITY is the
@@ -163,7 +163,8 @@ included in the message in the form of a dict object. Events are
 handled in a single-threaded manner and only one thread may raise
 an event at a time -- events are thread-safe. Callbacks are called 
 in the order of object registration. An event may be raised inside of another
-event and is handled as if it were a stack call. When this function returns, 
+event and is handled as if it were a stack call. Each object that receives
+an event notification can reply with a dict. When this function returns, 
 it will return a list of EventData objects -- one for each reply. Not all
 receivers need to reply, and some may reply more than once. The subject
 of every EventData object in the returned list will be "reply". This function
@@ -199,7 +200,7 @@ the caller. This function should not be overridden.
 
 This subsystem provides a simple threading capability to do asynchronous
 tasks. While not applicable to every task, it makes many such tasks much
-simpler and less verbose to impliment.
+simpler and less verbose to implement.
 
 Every Director, Manager, and Module is tied to the HeartbeatSubsystem, 
 because each derives from 

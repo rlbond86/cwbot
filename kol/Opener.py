@@ -34,5 +34,5 @@ class RequestsOpener(object):
 
     def open(self, url, requestData):
 #        traceback.print_stack()
-        self.response = self.opener.post(url, data=requestData)
+        self.response = self.opener.post(url, data=requestData, timeout=(10,31))
         return Response(self.response.text, self.response.url)

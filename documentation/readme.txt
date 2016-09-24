@@ -92,13 +92,12 @@ If you want to run cwbot to run at startup, you should set it up as a service.
 1Bi. On Linux
 -------------
 
-If you are using Ubuntu Linux, an Upstart configuration file is included in 
-the doc folder. Simply copy this into your /etc/init folder and edit the
-parameters at the top to match your install location and user account.
-Then reboot, or use "sudo service cwbot start" to start the service. 
-You will need to edit the path to the cwbot.py file in a text editor. If 
-your Linux distribution does not include Upstart, you will have to set up 
-your own init.d or systemd script.
+If you are using Linux, an upstart and systemd configuration files are 
+included in the doc folder. Simply copy this into your /etc/init folder 
+and edit the parameters at the top to match your install location and 
+user account. Then reboot, or use "sudo service cwbot start" to start 
+the service. You will need to edit the path to the cwbot.py file in a 
+text editor. 
 
 If you're using Linux, you can also delete the w32service.py file, which is
 only used for Windows.

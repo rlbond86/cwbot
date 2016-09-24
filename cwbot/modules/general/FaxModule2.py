@@ -471,7 +471,7 @@ class FaxModule2(BaseChatModule):
         faxbots = set()
         loadingFailed = False
         numTries = 3
-        for key in sorted(self._xmlAddresses.keys()):
+        for key in sorted(self._xmlAddresses.keys(), key=int):
             address = self._xmlAddresses[key]
             txt = None
             for _ in range(numTries):
@@ -514,9 +514,12 @@ class FaxModule2(BaseChatModule):
                                                      name.lower().strip()]:
                                 newMonsters[mname].addAlias(alias)
 
+                    # remove entries corresponding to this faxbot
                     for k,v in self._monsters.items():
                         self._monsters[k] = [entry for entry in v
                                              if entry.faxbot.xml != address]
+                                             
+                    # append new entries for this faxbot
                     for mname,monster in newMonsters.items():
                         self._monsters[mname].append(monster)
                     entryCount2 = valueCounter(self._monsters)
@@ -597,7 +600,18 @@ class FaxModule2(BaseChatModule):
                                           .format(", "
                                                 .join(self._faxCommands)))
                                 self._faxCommands = []
-                
+                            
+                            # reduce priority of this faxbot
+                            match = [k for k,v in self._xmlAddresses.items()
+                                     if v == request.faxbot.xml]
+                            if match:
+                                k = match[0]
+                                maxval = max(self._xmlAddresses.keys(), key=int)
+                                if k != maxval:
+                                    self._xmlAddresses[k],self._xmlAddresses[maxval] = \
+                                            self._xmlAddresses[maxval],self._xmlAddresses[k]
+                                    self.debugLog('Failed reply, new ordering {}'.format(self._xmlAddresses))
+                                    
                 elif self._delayMode.is_set():
                     if time.time() - self._delayStart > self._faxWait:
                         self._delayMode.clear()

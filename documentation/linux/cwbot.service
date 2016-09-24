@@ -1,0 +1,13 @@
+[Unit]
+Description=CWBot daemon
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/var/cwbot/cwbot.py
+Restart=always
+RestartSec=60
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target
