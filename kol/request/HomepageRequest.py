@@ -26,9 +26,9 @@ class HomepageRequest(GenericRequest):
             raise Error.Error("Unable to determine server URL from: " + self.response.url, Error.LOGIN_FAILED_GENERIC)
 
         # Get the user's challenge string which is used to provide a more secure login mechanism.
-        loginChallengePattern = PatternManager.getOrCompilePattern('loginChallenge')
-        challengeMatch = loginChallengePattern.search(self.responseText)
-        if challengeMatch:
-            self.responseData["loginChallenge"] = challengeMatch.group(1)
-        else:
-            raise Error.Error("Unable to find login challenge:\n" + self.responseText, Error.LOGIN_FAILED_GENERIC)
+#        loginChallengePattern = PatternManager.getOrCompilePattern('loginChallenge')
+#        challengeMatch = loginChallengePattern.search(self.responseText)
+#        if challengeMatch:
+#            self.responseData["loginChallenge"] = challengeMatch.group(1)
+#        else:
+#            raise Error.Error("Unable to find login challenge:\n" + self.responseText, Error.LOGIN_FAILED_GENERIC)

@@ -43,7 +43,8 @@ class Session(object):
         self.serverURL = homepageResponse["serverURL"]
 
         # Perform the login.
-        loginRequest = LoginRequest(self, homepageResponse["loginChallenge"])
+#        loginRequest = LoginRequest(self, homepageResponse["loginChallenge"])
+        loginRequest = LoginRequest(self, "")
         loginRequest.doRequest()
 
         # Load the charpane once to make StatusRequest report the rollover time
