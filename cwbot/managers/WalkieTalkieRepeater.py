@@ -153,7 +153,7 @@ class WalkieTalkieRepeater(BaseChatManager):
             elif re.search(r"^!help\s*$", text):
                 return self._showCommandSummary(msg, None, None)
         
-        if msg['userId'] in self._otherBots:
+        if msg['userId'] in self._otherBots and msg['type'] == 'private':
             m = re.search(r'''TALKIE \[([0-9 ]+)\]''', text)
             if m is not None:
                 otherNumChanges = int("".join(m.group(1).split()))
@@ -259,8 +259,7 @@ class WalkieTalkieRepeater(BaseChatManager):
         
         
     def _syncState(self, force=False):
-        '''Store persistent data for Hobo Modules. Here there is the 
-        extra step of storing the old log and hoid. '''
+        '''Store persistent data for modules.'''
         with self._syncLock:
             if self._persist is not None:
                 self._persist['__numchanges__'] = self._numChanges
