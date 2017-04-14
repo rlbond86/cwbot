@@ -105,23 +105,23 @@ class InventoryManager(object):
                 with con:
                     c = con.cursor()
                     if reserveName is None and reserveInfo is None:
-                        c.execute("SELECT iid,sum(reserved) AS reservations"
+                        c.execute("SELECT iid,sum(reserved) AS reservations "
                                   "FROM {} GROUP BY iid"
-                                  .format(self._names))
+                                  .format(self._name))
                     elif reserveName is None:
-                        c.execute("SELECT iid,sum(reserved) AS reservations"
+                        c.execute("SELECT iid,sum(reserved) AS reservations "
                                   "FROM {} WHERE reserveInfo=? GROUP BY iid"
-                                  .format(self._names), (reserveInfo,))
+                                  .format(self._name), (reserveInfo,))
                     elif reserveInfo is None:
-                        c.execute("SELECT iid,sum(reserved) AS reservations"
+                        c.execute("SELECT iid,sum(reserved) AS reservations "
                                   "FROM {} WHERE reservedBy=? GROUP BY iid"
-                                  .format(self._names), (reserveName,))
+                                  .format(self._name), (reserveName,))
                     else:
-                        c.execute("SELECT iid,sum(reserved) AS reservations"
+                        c.execute("SELECT iid,sum(reserved) AS reservations "
                                   "FROM {} "
                                   "WHERE reservedBy=? AND reserveInfo=? "
                                   "GROUP BY iid"
-                                  .format(self._names), 
+                                  .format(self._name), 
                                   (reserveName, reserveInfo))
                         
                     return dict((row['iid'], row['reservations']) 

@@ -81,7 +81,7 @@ class MailboxManager(object):
                                                  **kwargs))
     
             # Check to see if we should open gift packages.
-            if openGiftPackages:
+            if openGiftPackages and box.lower() == "inbox":
     
                 # First get a list of messages that contain potentially
                 # unopened gift packages.

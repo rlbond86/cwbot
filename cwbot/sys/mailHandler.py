@@ -25,9 +25,11 @@ from cwbot.kolextra.request.TakeItemsFromDisplayCaseRequest import \
 import kol.Error
 
 
-def _itemsToDict(itemList, addTo={}):
+def _itemsToDict(itemList, addTo=None):
     """ Convert pyKol-style item list to a dict of (item-id: quantity) pairs.
     """
+    if addTo is None:
+        addTo = {}
     newDict = defaultdict(lambda: 0)
     newDict.update(addTo)
     for item in itemList:
@@ -715,6 +717,7 @@ class MailHandler(ExceptionThread):
             self._invMan.refreshInventory()
             inv = self._invMan.completeInventory()
             items = _itemsToDict(message.get('items', []))
+            takenFromDC = False
             for iid,qty in items.items():
                 inInventory = inv.get(iid, 0)
                 if inInventory < qty:
@@ -723,8 +726,10 @@ class MailHandler(ExceptionThread):
                     r = TakeItemsFromDisplayCaseRequest(
                         self._s, [{'id': iid, 'quantity': qty - inInventory}])
                     tryRequest(r)
-            self._invMan.refreshInventory()
-            inv = self._invMan.completeInventory()
+                    takenFromDC = True
+            if takenFromDC:
+                self._invMan.refreshInventory()
+                inv = self._invMan.completeInventory()
 
             # check for items in stock, and if they are sendable
             filteredItems = {}
@@ -856,9 +861,10 @@ class MailHandler(ExceptionThread):
             # remove items that can't be sent (because we are out of them)
             while not success:
                 try:
-                    self._checkItems(message)
+                    self._checkItems(message, reserveId=msgId)
                     success = True
                 except MessageError as e:
+                    self._log.exception("Error attaching items")
                     match = re.search(r'item (\d+)\s', str(e))
                     if match is None:
                         raise
@@ -1157,7 +1163,7 @@ class MailHandler(ExceptionThread):
                     .format(self._name), (newState, newError, mid))
                         
         
-    def _checkItems(self, message):
+    def _checkItems(self, message, reserveId=None):
         items = _itemsToDict(message['items'])
         with InventoryLock.lock:
             self._invMan.refreshInventory()
@@ -1165,9 +1171,14 @@ class MailHandler(ExceptionThread):
             r = GetDisplayCaseRequest(self._s)
             d = tryRequest(r)
             inv = _itemsToDict(d['items'], inv)
+            if reserveId is not None:
+                # include items reserved for this kmail in inventory counts
+                reserved = self._invMan.reserved(self._name, reserveId)
+                for k,v in reserved.items():
+                    inv[k] += v
             for iid,qty in items.items():
                 if inv.get(iid, 0) < qty:
-                    raise MessageError("Not enough of item {} in inventory."
-                                       .format(iid)) 
+                    raise MessageError("Not enough of item {} in inventory (have {}, need {})"
+                                       .format(iid, inv.get(iid,0), qty)) 
                 
         

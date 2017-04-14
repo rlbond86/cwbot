@@ -134,8 +134,9 @@ class WarbearBlackboxModule(BaseKmailModule):
                     self.errorLog("Error with Warbear Black Box: {}", e)
                     d2 = {}
             
-            receivedQty = d2['items'][0]['quantity'] if d2 else 0
-            totalQty = receivedQty + qtyHave
+            self.inventoryManager.refreshInventory()
+            inventory = self.inventoryManager.inventory()
+            totalQty = min(inventory.get(itemId, 0), qty)
             realCost = self._items[desiredName]['cost'] * totalQty
             returnItems = copy.deepcopy(message.items)
             returnItems[6913] -= realCost
