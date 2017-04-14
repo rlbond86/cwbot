@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/var/cwbot/cwbot.py
+ExecStart=/path/to/cwbot/cwbot.py
 Restart=always
 RestartSec=60
 TimeoutStopSec=120

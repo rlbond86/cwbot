@@ -92,12 +92,13 @@ If you want to run cwbot to run at startup, you should set it up as a service.
 1Bi. On Linux
 -------------
 
-If you are using Linux, an upstart and systemd configuration files are 
-included in the doc folder. Simply copy this into your /etc/init folder 
-and edit the parameters at the top to match your install location and 
-user account. Then reboot, or use "sudo service cwbot start" to start 
-the service. You will need to edit the path to the cwbot.py file in a 
-text editor. 
+If you are using Ubuntu Linux, configuration files for both Upstart and
+systemd are included in the doc folder. Simply copy this into the appropriate
+directory and edit the path parameters within to match your install location
+and user account. Then reboot, or use "sudo service cwbot start" to start 
+the service. You will need to edit the path to the cwbot.py file in a text 
+editor. If your Linux distribution does not include Upstart or systemd, you 
+will have to set up your script.
 
 If you're using Linux, you can also delete the w32service.py file, which is
 only used for Windows.
@@ -106,20 +107,15 @@ only used for Windows.
 1Bii. On Windows
 ----------------
 
-NOTE: Old versions suggested to use the Task Scheduler. This method is
-inferior to the new service-based configuration.
-
 If you are using Windows, you should install cwbot as a service. Do the
 following steps:
 
-1. Download and install pywin32 at https://sourceforge.net/projects/pywin32/.
+1. Download and install pywin32 at https://sourceforge.net/projects/pywin32/
    You need the version that matches your Python distribution. This is most
-   likely pywin32-218.win32-py2.7.exe. As of this writing, the download is at
-   https://sourceforge.net/projects/pywin32/files/pywin32/Build%20218/. Note
-   that this needs to be run as an administrator, but for some reason it's
-   not specified in the executable, so you will have to right-click it and
-   select Run as administrator. If no distribution shows up in setup, try the
-   64-bit version.
+   likely pywin32-221.win32-py2.7.exe. Note that this needs to be run as an
+   administrator, but for some reason it's not specified in the executable, 
+   so you will have to right-click it and select Run as administrator. 
+   If no distribution shows up in setup, try the 64-bit version.
 
 2. Find the install_service.bat file in the doc/windows folder of the cwbot
    distribution. Right click it and select Run as administrator to install the
@@ -1398,5 +1394,4 @@ cwbot.modules.dread.DreadTimelineModule - keeps a "timeline" of past instances
 4. Contact Info
 ---------------
 
-For more information, kmail RLBond86. If you like the bot, please donate some
-Mr. As in appreciation.
+For more information, kmail RLBond86.
