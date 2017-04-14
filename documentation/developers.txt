@@ -78,7 +78,7 @@ Some supply extra information or capabilities to modules. Some filter chats
 or kmails in a certain way. Managers also handle initialization of modules,
 as well as their synchronization of persistent state. A new manager might 
 be necessary, for example, to handle chats in a totally new way -- for 
-example, to only respond to PMs. All managers derive from a base module
+example, to only respond to PMs. All managers derive from a base manager
 as well. Only one kmail-based manager is included, which derives from
 cwbot.managers.BaseManager; chat-based managers instead derive from its child
 class cwbot.managers.BaseChatManager. See the manager section for more details.
